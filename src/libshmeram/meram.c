@@ -7,6 +7,17 @@
 #include <stdint.h>
 #include "meram_priv.h"
 
+#define ALIGN2UP(_p, _w)		\
+{					\
+	(_p) = ((_w) - 1);		\
+	(_p) = (_p) | ((_p) >> 1);	\
+	(_p) = (_p) | ((_p) >> 2);	\
+	(_p) = (_p) | ((_p) >> 4);	\
+	(_p) = (_p) | ((_p) >> 8);	\
+	(_p) = (_p) | ((_p) >> 16);	\
+	(_p) += 1;			\
+}
+
 typedef uint8_t u8;
 
 static UIOMux *uiomux = NULL;
@@ -227,7 +238,7 @@ int meram_alloc_memory_block(MERAM *meram, int size)
 	/* uiomux_malloc has minimum 1 page (4k) alignment*/
 	while (!alloc_ptr) {
 		alloc_ptr = uiomux_malloc(meram->uiomux, UIOMUX_SH_MERAM,
-			alloc_size, 1024);
+			alloc_size, alloc_size);
 		if (!alloc_ptr)
 			return -1;
 		current = meram->reserved_mem;
@@ -456,4 +467,17 @@ delete_ipmmui_settings(struct ipmmui_settings *head)
 		free(head);
 		head = next;
 	}
+}
+
+int
+meram_get_required_memory_size(int stride, int line_num)
+{
+	int bytes_per_line;
+
+	if (stride <= 1024)
+		bytes_per_line = 1024;
+	else
+		ALIGN2UP(bytes_per_line, stride);
+
+	return bytes_per_line * line_num / 1024;
 }
